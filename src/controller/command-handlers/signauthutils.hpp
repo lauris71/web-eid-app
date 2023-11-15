@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2024 Estonian Information System Authority
+ * Copyright (c) 2020-2023 Estonian Information System Authority
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,17 +22,13 @@
 
 #pragma once
 
-#include "pcsc-cpp/pcsc-cpp.hpp"
+#include "electronic-id/enums.hpp"
+#include "pcsc-cpp/pcsc-cpp-utils.hpp"
 
 #include <QVariantMap>
 
 class WebEidUI;
-
-namespace electronic_id
-{
-class ElectronicID;
-class SignatureAlgorithm;
-} // namespace electronic_id
+class QSslCertificate;
 
 void requireArgumentsAndOptionalLang(QStringList argNames, const QVariantMap& args,
                                      const std::string& argDescriptions);
@@ -45,6 +41,6 @@ extern template QString validateAndGetArgument<QString>(const QString& argName,
 extern template QByteArray
 validateAndGetArgument<QByteArray>(const QString& argName, const QVariantMap& args, bool allowNull);
 
-pcsc_cpp::byte_vector getPin(const electronic_id::ElectronicID& card, WebEidUI* window);
+int getPin(pcsc_cpp::byte_vector& pin, const pcsc_cpp::SmartCard& card, WebEidUI* window);
 
 QVariantMap signatureAlgoToVariantMap(const electronic_id::SignatureAlgorithm signatureAlgo);

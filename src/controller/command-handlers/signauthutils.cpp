@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2024 Estonian Information System Authority
+ * Copyright (c) 2020-2023 Estonian Information System Authority
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -78,29 +78,28 @@ inline void eraseData(T& data)
     }
 }
 
-pcsc_cpp::byte_vector getPin(const ElectronicID& card, WebEidUI* window)
+int getPin(pcsc_cpp::byte_vector& pin, const pcsc_cpp::SmartCard& card, WebEidUI* window)
 {
     // Doesn't apply to PIN pads.
-    if (card.smartcard().readerHasPinPad() || card.providesExternalPinDialog()) {
-        return {};
+    if (card.readerHasPinPad()) {
+        return 0;
     }
 
     REQUIRE_NON_NULL(window)
 
-    auto pin = window->getPin();
-    if (pin.isEmpty()) {
+    QString pinqs = window->getPin();
+    if (pinqs.isEmpty()) {
         THROW(ProgrammingError, "Empty PIN");
     }
+    int len = (int) pinqs.length();
 
-    // TODO: Avoid making copies of the PIN in memory.
-    auto pinQByteArray = pin.toUtf8();
-    pcsc_cpp::byte_vector pinBytes {pinQByteArray.begin(), pinQByteArray.end()};
+    pin.resize(len);
+    for (int i = 0; i < len; i++) {
+        pin[i] = pinqs[i].cell();
+    }
+    eraseData<QString, QChar>(pinqs);
 
-    // TODO: Verify that the buffers are actually zeroed and no copies remain.
-    eraseData<QString, QChar>(pin);
-    eraseData<QByteArray, char>(pinQByteArray);
-
-    return pinBytes;
+    return len;
 }
 
 QVariantMap signatureAlgoToVariantMap(const SignatureAlgorithm signatureAlgo)
