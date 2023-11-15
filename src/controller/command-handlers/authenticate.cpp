@@ -119,21 +119,22 @@ QVariantMap Authenticate::onConfirm(WebEidUI* window,
     const auto signatureAlgorithm =
         QString::fromStdString(cardCertAndPin.cardInfo->eid().authSignatureAlgorithm());
 
-    auto pin = getPin(cardCertAndPin.cardInfo->eid().smartcard(), window);
+    pcsc_cpp::byte_vector pin;
+    getPin(pin, cardCertAndPin.cardInfo->eid().smartcard(), window);
 
     try {
         const auto signature =
             createSignature(origin.url(), challengeNonce, cardCertAndPin.cardInfo->eid(), pin);
 
         // Erase the PIN memory.
-        // TODO: Use a scope guard. Verify that the buffers are actually zeroed and no copies
-        // remain.
         std::fill(pin.begin(), pin.end(), '\0');
 
         return createAuthenticationToken(signatureAlgorithm, cardCertAndPin.certificateBytesInDer,
                                          signature);
 
     } catch (const VerifyPinFailed& failure) {
+        // Erase the PIN memory.
+        std::fill(pin.begin(), pin.end(), '\0');
         switch (failure.status()) {
         case electronic_id::VerifyPinFailed::Status::PIN_ENTRY_CANCEL:
         case electronic_id::VerifyPinFailed::Status::PIN_ENTRY_TIMEOUT:

@@ -95,20 +95,23 @@ void Sign::emitCertificatesReady(const std::vector<CardCertificateAndPinInfo>& c
 
 QVariantMap Sign::onConfirm(WebEidUI* window, const CardCertificateAndPinInfo& cardCertAndPin)
 {
-    auto pin = getPin(cardCertAndPin.cardInfo->eid().smartcard(), window);
+    pcsc_cpp::byte_vector pin;
+    getPin(pin, cardCertAndPin.cardInfo->eid().smartcard(), window);
 
     try {
         const auto signature = signHash(cardCertAndPin.cardInfo->eid(), pin, docHash, hashAlgo);
 
         // Erase PIN memory.
-        // TODO: Use a scope guard. Verify that the buffers are actually zeroed
-        // and no copies remain.
         std::fill(pin.begin(), pin.end(), '\0');
 
         return {{QStringLiteral("signature"), signature.first},
                 {QStringLiteral("signatureAlgorithm"), signature.second}};
 
     } catch (const VerifyPinFailed& failure) {
+
+        // Erase PIN memory.
+        std::fill(pin.begin(), pin.end(), '\0');
+
         switch (failure.status()) {
         case electronic_id::VerifyPinFailed::Status::PIN_ENTRY_CANCEL:
         case electronic_id::VerifyPinFailed::Status::PIN_ENTRY_TIMEOUT:
