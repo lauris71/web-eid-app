@@ -284,7 +284,10 @@ QString WebEidDialog::getPin()
 {
     // getPin() is called from background threads and must be thread-safe.
     // QString uses QAtomicPointer internally and is thread-safe.
-    return pin;
+    // There should be only single reference and this is transferred to the caller for safety
+    QString ret = pin;
+    pin = "";
+    return ret;
 }
 
 void WebEidDialog::onSmartCardStatusUpdate(const RetriableError status)
