@@ -334,7 +334,7 @@ void WebEidDialog::onMultipleCertificatesReady(
         ui->selectAnotherCertificate->setVisible(certificateAndPinInfos.size() > 1);
         connect(ui->selectAnotherCertificate, &QPushButton::clicked, this,
                 [this, origin, certificateAndPinInfos] {
-                    ui->pinInput->clear();
+                    ui->pinInput->setText("");
                     onMultipleCertificatesReady(origin, certificateAndPinInfos);
                 });
         setupOK([this, origin, certificateAndPinInfos] {
