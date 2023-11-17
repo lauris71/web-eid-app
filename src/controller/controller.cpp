@@ -40,6 +40,7 @@ namespace
 {
 
 const QString RESP_TECH_ERROR = QStringLiteral("ERR_WEBEID_NATIVE_FATAL");
+const QString RESP_INVALID_INVOCATION = QStringLiteral("ERR_WEBEID_INVALID_INVOCATION");
 const QString RESP_USER_CANCEL = QStringLiteral("ERR_WEBEID_USER_CANCELLED");
 
 QVariantMap makeErrorObject(const QString& errorCode, const QString& errorMessage)
@@ -101,16 +102,8 @@ void Controller::run()
 
         startCommandExecution();
 
-    } catch (const std::invalid_argument& exc) {
-        if (isInStdinMode) {
-            // Pass invalid argument message to the caller just in case it may be interested
-            // The result will be {"invalid-argument" : message}
-            // Command parameter is only used if exception will be raised during json creation
-            writeResponseToStdOut(isInStdinMode,
-                                  {{QStringLiteral("invalid-argument"), exc.what()}},
-                                  "invalid-argument");
-        }
-        onCriticalFailure(exc.what());
+    } catch (const std::invalid_argument& error) {
+        onInvalidInvocation(error.what());
     } catch (const std::exception& error) {
         onCriticalFailure(error.what());
     }
@@ -364,6 +357,17 @@ void Controller::onCriticalFailure(const QString& error)
                 << "fatal error:" << error;
     _result =
         makeErrorObject(RESP_TECH_ERROR, QStringLiteral("Technical error, see application logs"));
+    writeResponseToStdOut(isInStdinMode, _result, commandType());
+    disposeUI();
+    WebEidUI::showFatalError();
+    exit();
+}
+
+void Controller::onInvalidInvocation(const QString& error)
+{
+    qCritical() << "Invalid arguments to command" << std::string(commandType())
+                << "reason:" << error;
+    _result = makeErrorObject(RESP_INVALID_INVOCATION, error);
     writeResponseToStdOut(isInStdinMode, _result, commandType());
     disposeUI();
     WebEidUI::showFatalError();
