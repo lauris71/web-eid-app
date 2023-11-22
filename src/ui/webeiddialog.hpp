@@ -104,7 +104,6 @@ private:
     template <typename Func>
     void setupOK(Func&& func, const std::function<QString()>& text = {}, bool enabled = false);
     void displayPinBlockedError();
-    void displayFatalError(std::function<QString()> message);
 
     void showPinInputWarning(bool show);
     void resizeHeight();

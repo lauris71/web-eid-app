@@ -440,6 +440,7 @@ void WebEidDialog::onVerifyPinFailed(const VerifyPinFailed::Status status, const
 
     std::function<QString()> message;
 
+    // FIXME: don't allow retry in case of UNKNOWN_ERROR
     switch (status) {
     case Status::RETRY_ALLOWED:
         message = [retriesLeft] {
@@ -462,13 +463,8 @@ void WebEidDialog::onVerifyPinFailed(const VerifyPinFailed::Status status, const
         message = [] { return tr("PIN entry cancelled."); };
         break;
     case Status::PIN_ENTRY_DISABLED:
-        message = [] { return tr("PIN entry disabled"); };
-        break;
     case Status::UNKNOWN_ERROR:
         message = [] { return tr("Technical error"); };
-        displayFatalError(message);
-        resizeHeight();
-        return;
         break;
     }
 
@@ -675,21 +671,6 @@ void WebEidDialog::displayPinBlockedError()
     ui->cancelButton->setEnabled(true);
     ui->cancelButton->show();
     ui->helpButton->show();
-}
-
-void WebEidDialog::displayFatalError(std::function<QString()> message)
-{
-    ui->pinTitleLabel->hide();
-    ui->pinInput->hide();
-    ui->pinTimeoutTimer->stop();
-    ui->pinTimeRemaining->hide();
-    ui->pinEntryTimeoutProgressBar->hide();
-    setTrText(ui->pinErrorLabel, message);
-    ui->pinErrorLabel->show();
-    ui->okButton->hide();
-    ui->cancelButton->setEnabled(true);
-    ui->cancelButton->show();
-    //ui->helpButton->show();
 }
 
 void WebEidDialog::showPinInputWarning(bool show)

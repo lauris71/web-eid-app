@@ -101,7 +101,6 @@ void Controller::run()
         commandHandler = getCommandHandler(*command);
 
         startCommandExecution();
-
     } catch (const std::invalid_argument& error) {
         onInvalidInvocation(error.what());
     } catch (const std::exception& error) {
