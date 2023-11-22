@@ -78,28 +78,29 @@ inline void eraseData(T& data)
     }
 }
 
-int getPin(pcsc_cpp::byte_vector& pin, const pcsc_cpp::SmartCard& card, WebEidUI* window)
+pcsc_cpp::byte_vector getPin(const pcsc_cpp::SmartCard& card, WebEidUI* window)
 {
     // Doesn't apply to PIN pads.
     if (card.readerHasPinPad()) {
-        return 0;
+        return {};
     }
 
     REQUIRE_NON_NULL(window)
 
-    QString pinqs = window->getPin();
-    if (pinqs.isEmpty()) {
+    auto pin = window->getPin();
+    if (pin.isEmpty()) {
         THROW(ProgrammingError, "Empty PIN");
     }
-    int len = (int) pinqs.length();
 
-    pin.resize(len);
-    for (int i = 0; i < len; i++) {
-        pin[i] = pinqs[i].cell();
-    }
-    eraseData<QString, QChar>(pinqs);
+    // TODO: Avoid making copies of the PIN in memory.
+    auto pinQByteArray = pin.toUtf8();
+    auto pinBytes = pcsc_cpp::byte_vector {pinQByteArray.begin(), pinQByteArray.end()};
 
-    return len;
+    // TODO: Verify that the buffers are actually zeroed and no copies remain.
+    eraseData<QString, QChar>(pin);
+    eraseData<QByteArray, char>(pinQByteArray);
+
+    return pinBytes;
 }
 
 QVariantMap signatureAlgoToVariantMap(const SignatureAlgorithm signatureAlgo)
