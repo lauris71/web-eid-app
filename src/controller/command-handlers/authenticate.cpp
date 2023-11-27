@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2024 Estonian Information System Authority
+ * Copyright (c) 2020-2023 Estonian Information System Authority
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -51,20 +51,18 @@ QVariantMap createAuthenticationToken(const QString& signatureAlgorithm,
         {"format", QStringLiteral("web-eid:1.0")},
         {"appVersion",
          QStringLiteral("https://web-eid.eu/web-eid-app/releases/%1")
-             .arg(QApplication::applicationVersion())},
+             .arg(qApp->applicationVersion())},
     };
 }
 
 QByteArray createSignature(const QString& origin, const QString& challengeNonce,
                            const ElectronicID& eid, const pcsc_cpp::byte_vector& pin)
 {
-    static const std::map<JsonWebSignatureAlgorithm, QCryptographicHash::Algorithm>
-        SIGNATURE_ALGO_TO_HASH {
+    static const auto SIGNATURE_ALGO_TO_HASH =
+        std::map<JsonWebSignatureAlgorithm, QCryptographicHash::Algorithm> {
             {JsonWebSignatureAlgorithm::RS256, QCryptographicHash::Sha256},
             {JsonWebSignatureAlgorithm::PS256, QCryptographicHash::Sha256},
-            {JsonWebSignatureAlgorithm::ES256, QCryptographicHash::Sha256},
             {JsonWebSignatureAlgorithm::ES384, QCryptographicHash::Sha384},
-            {JsonWebSignatureAlgorithm::ES512, QCryptographicHash::Sha512},
         };
 
     if (!SIGNATURE_ALGO_TO_HASH.count(eid.authSignatureAlgorithm())) {
@@ -82,8 +80,8 @@ QByteArray createSignature(const QString& origin, const QString& challengeNonce,
     // The value that is signed is hash(origin)+hash(challenge).
     const auto hashToBeSignedQBytearray =
         QCryptographicHash::hash(originHash + challengeNonceHash, hashAlgo);
-    const pcsc_cpp::byte_vector hashToBeSigned {hashToBeSignedQBytearray.cbegin(),
-                                                hashToBeSignedQBytearray.cend()};
+    const auto hashToBeSigned =
+        pcsc_cpp::byte_vector {hashToBeSignedQBytearray.cbegin(), hashToBeSignedQBytearray.cend()};
 
     const auto signature = eid.signWithAuthKey(pin, hashToBeSigned);
 
@@ -97,12 +95,11 @@ QByteArray createSignature(const QString& origin, const QString& challengeNonce,
 Authenticate::Authenticate(const CommandWithArguments& cmd) : CertificateReader(cmd)
 {
     const auto arguments = cmd.second;
-    requireArgumentsAndOptionalLang(
-        {"challengeNonce", "origin"}, arguments,
-        R"("challengeNonce": "<challenge nonce>", "origin": "<origin URL>")");
+    requireArgumentsAndOptionalLang({"challengeNonce", "origin"}, arguments,
+                                    "\"challengeNonce\": \"<challenge nonce>\", "
+                                    "\"origin\": \"<origin URL>\"");
 
-    challengeNonce = validateAndGetArgument<decltype(challengeNonce)>(
-        QStringLiteral("challengeNonce"), arguments);
+    challengeNonce = validateAndGetArgument<QString>(QStringLiteral("challengeNonce"), arguments);
     // nonce must contain at least 256 bits of entropy and is usually Base64-encoded, so the
     // required byte length is 44, the length of 32 Base64-encoded bytes.
     if (challengeNonce.length() < 44) {
@@ -122,26 +119,26 @@ QVariantMap Authenticate::onConfirm(WebEidUI* window,
     const auto signatureAlgorithm =
         QString::fromStdString(cardCertAndPin.cardInfo->eid().authSignatureAlgorithm());
 
-    auto pin = getPin(cardCertAndPin.cardInfo->eid(), window);
+    pcsc_cpp::byte_vector pin;
+    getPin(pin, cardCertAndPin.cardInfo->eid().smartcard(), window);
+    scope_exit([&pin] {
+        // Erase PIN memory.
+        std::fill(pin.begin(), pin.end(), '\0');
+    });
 
     try {
         const auto signature =
             createSignature(origin.url(), challengeNonce, cardCertAndPin.cardInfo->eid(), pin);
-
-        // Erase the PIN memory.
-        // TODO: Use a scope guard. Verify that the buffers are actually zeroed and no copies
-        // remain.
-        std::fill(pin.begin(), pin.end(), '\0');
 
         return createAuthenticationToken(signatureAlgorithm, cardCertAndPin.certificateBytesInDer,
                                          signature);
 
     } catch (const VerifyPinFailed& failure) {
         switch (failure.status()) {
-        case VerifyPinFailed::Status::PIN_ENTRY_CANCEL:
-        case VerifyPinFailed::Status::PIN_ENTRY_TIMEOUT:
+        case electronic_id::VerifyPinFailed::Status::PIN_ENTRY_CANCEL:
+        case electronic_id::VerifyPinFailed::Status::PIN_ENTRY_TIMEOUT:
             break;
-        case VerifyPinFailed::Status::PIN_ENTRY_DISABLED:
+        case electronic_id::VerifyPinFailed::Status::PIN_ENTRY_DISABLED:
             emit retry(RetriableError::PIN_VERIFY_DISABLED);
             break;
         default:
